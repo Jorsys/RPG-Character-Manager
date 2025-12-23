@@ -1,600 +1,864 @@
 import React, { useState } from 'react';
-import { Character, InventoryItemType } from '../../types/types';
-// import { equipItem as equipItemUtil, unequipItem as unequipItemUtil } from '../../utils/equipment';
+import { InventoryItem, InventoryItemType, Spell, Note } from '../../types/types';
 
 interface CharacterActionsProps {
-  character: Character;
-  onCharacterUpdate: (updatedCharacter: Character) => void;
+  character: any; // Usamos any temporalmente, usarías el tipo Character si lo importas aquí
+  onCharacterUpdate: (updatedCharacter: any) => void; // Igualmente, usarías el tipo Character
   onClose: () => void;
 }
 
 const CharacterActions: React.FC<CharacterActionsProps> = ({ character, onCharacterUpdate, onClose }) => {
-  const [action, setAction] = useState<string | null>(null);
-  const [damageValue, setDamageValue] = useState<number>(0);
-  const [spellToUse, setSpellToUse] = useState<string>('');
-  const [potionToUse, setPotionToUse] = useState<string>('');
-  const [scrollToUse, setScrollToUse] = useState<string>('');
-  const [receivedEffectType, setReceivedEffectType] = useState<string>('health');
-  const [receivedEffectValue, setReceivedEffectValue] = useState<number>(0);
-  const [receivedEffectDuration, setReceivedEffectDuration] = useState<string>('1 turno');
-  const [findItemType, setFindItemType] = useState<'coins' | 'armor' | 'weapon' | 'potion' | 'scroll' | 'ammunition' | 'misc'>('misc');
-  const [findItemName, setFindItemName] = useState<string>('');
-  const [findItemQuantity, setFindItemQuantity] = useState<number>(1);
-  const [buyItemName, setBuyItemName] = useState<string>('');
-  const [buyItemQuantity, setBuyItemQuantity] = useState<number>(1);
-  const [buyCost, setBuyCost] = useState<number>(0);
-  const [sellItem, setSellItem] = useState<string>('');
-  const [sellQuantity, setSellQuantity] = useState<number>(1);
-  const [sellValue, setSellValue] = useState<number>(0);
+  const [showBuyItemModal, setShowBuyItemModal] = useState(false);
+  const [showFindItemModal, setShowFindItemModal] = useState(false);
+  const [showAddSpellModal, setShowAddSpellModal] = useState(false);
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
 
-  // --- Acciones ---
-  const handleReceiveDamage = (type: 'physical' | 'magic') => {
-    if (damageValue <= 0) return;
+  // Estados para comprar/encontrar ítems
+  const [buyItemType, setBuyItemType] = useState<InventoryItemType>('misc');
+  const [buyItemName, setBuyItemName] = useState('');
+  const [buyItemQuantity, setBuyItemQuantity] = useState(1);
 
-    let updatedCharacter = { ...character };
-    let damageLeft = damageValue;
+  // Campos específicos para comprar/encontrar ítems
+  const [buyItemSubtype, setBuyItemSubtype] = useState('');
+  const [buyItemEffect, setBuyItemEffect] = useState(0);
+  const [buyItemDuration, setBuyItemDuration] = useState('');
+  const [buyItemWeaponType, setBuyItemWeaponType] = useState<'melee' | 'ranged' | 'shield'>('melee');
+  const [buyItemRequiredHands, setBuyItemRequiredHands] = useState<0 | 1 | 2>(1);
+  const [buyItemDamageDiceQty, setBuyItemDamageDiceQty] = useState(1);
+  const [buyItemDamageDiceFaces, setBuyItemDamageDiceFaces] = useState(6);
+  const [buyItemEnchanted, setBuyItemEnchanted] = useState(false);
+  const [buyItemEnchantmentValue, setBuyItemEnchantmentValue] = useState(0);
+  const [buyItemDurabilityMax, setBuyItemDurabilityMax] = useState(0);
+  const [buyItemIntegrity, setBuyItemIntegrity] = useState(0);
+  const [buyItemResistanceMax, setBuyItemResistanceMax] = useState(0);
+  const [buyItemBlockPhysical, setBuyItemBlockPhysical] = useState(0);
+  const [buyItemBlockMagic, setBuyItemBlockMagic] = useState(0);
+  const [buyItemEnhancementPhysical, setBuyItemEnhancementPhysical] = useState(0);
+  const [buyItemEnhancementMagic, setBuyItemEnhancementMagic] = useState(0);
+  const [buyItemIntegrityArmor, setBuyItemIntegrityArmor] = useState(0);
 
-    if (type === 'physical') {
-      const equippedArmor = updatedCharacter.inventory.find(item => item.type === 'armor' && item.equipped);
-      if (equippedArmor && equippedArmor.integrity !== undefined) {
-        const blockAmount = equippedArmor.blockPhysical || 0;
-        const damageToArmor = Math.min(damageLeft, blockAmount);
-        const damageToHealth = damageLeft - damageToArmor;
+  // Estados para añadir hechizo
+  const [newSpellName, setNewSpellName] = useState('');
+  const [newSpellDifficulty, setNewSpellDifficulty] = useState(0);
+  const [newSpellCost, setNewSpellCost] = useState(0);
+  const [newSpellRange, setNewSpellRange] = useState('');
+  const [newSpellEffect, setNewSpellEffect] = useState('');
 
-        equippedArmor.integrity = Math.max(0, (equippedArmor.integrity - damageToArmor));
-        updatedCharacter.status.health = Math.max(0, updatedCharacter.status.health - damageToHealth);
-      } else {
-        updatedCharacter.status.health = Math.max(0, updatedCharacter.status.health - damageLeft);
-      }
-    } else { // magic
-      const equippedArmor = updatedCharacter.inventory.find(item => item.type === 'armor' && item.equipped);
-      if (equippedArmor && equippedArmor.integrity !== undefined) {
-        const blockAmount = equippedArmor.blockMagic || 0;
-        const damageToArmor = Math.min(damageLeft, blockAmount);
-        const damageToHealth = damageLeft - damageToArmor;
+  // Estados para añadir nota
+  const [newNoteContent, setNewNoteContent] = useState(''); // <-- Cambio: solo contenido
 
-        equippedArmor.integrity = Math.max(0, (equippedArmor.integrity - damageToArmor));
-        updatedCharacter.status.health = Math.max(0, updatedCharacter.status.health - damageToHealth);
-      } else {
-        updatedCharacter.status.health = Math.max(0, updatedCharacter.status.health - damageLeft);
-      }
-    }
+  const handleBuyItem = () => {
+    const newItem: InventoryItem = {
+      id: Date.now().toString(),
+      type: buyItemType,
+      name: buyItemName,
+      quantity: buyItemQuantity,
+      // Añadir campos condicionalmente
+      ...(buyItemType === 'potion' || buyItemType === 'scroll' || buyItemType === 'ammunition' ? {
+          subtype: buyItemSubtype || undefined,
+          effect: buyItemEffect || undefined,
+          duration: buyItemDuration || undefined,
+      } : {}),
+      ...(buyItemType === 'weapon' ? {
+          weaponType: buyItemWeaponType,
+          requiredHands: buyItemRequiredHands,
+          damageDice: (buyItemDamageDiceQty > 0 && buyItemDamageDiceFaces > 0) ? [{ quantity: buyItemDamageDiceQty, faces: buyItemDamageDiceFaces }] : undefined,
+          enchanted: buyItemEnchanted || undefined,
+          enchantmentValue: buyItemEnchanted ? buyItemEnchantmentValue : undefined,
+          durabilityMax: buyItemDurabilityMax || undefined,
+          integrity: buyItemIntegrity || undefined,
+      } : {}),
+      ...(buyItemType === 'armor' ? {
+          resistanceMax: buyItemResistanceMax || undefined,
+          blockPhysical: buyItemBlockPhysical || undefined,
+          blockMagic: buyItemBlockMagic || undefined,
+          enhancementPhysical: buyItemEnhancementPhysical || undefined,
+          enhancementMagic: buyItemEnhancementMagic || undefined,
+          integrity: buyItemIntegrityArmor || undefined,
+      } : {}),
+    };
 
+    const updatedCharacter = {
+      ...character,
+      inventory: [...character.inventory, newItem],
+    };
     onCharacterUpdate(updatedCharacter);
-    setAction(null);
-    setDamageValue(0);
+    setShowBuyItemModal(false);
+    resetBuyItemForm();
   };
 
-  const handleUseSpell = () => {
-    if (!spellToUse) return;
-    const spell = character.spellbook.find(s => s.id === spellToUse);
-    if (!spell) return;
-
-    // Usar maná
-    if (character.status.mana <= 0) {
-        alert("No hay maná suficiente para lanzar el hechizo.");
-        return;
-    }
-    let updatedCharacter = { ...character };
-    updatedCharacter.status.mana = Math.max(0, updatedCharacter.status.mana - 1);
-
-    // Aquí iría la lógica específica del hechizo.
-    // Por ejemplo, si cura, daña, etc.
-    // Por ahora, un ejemplo simple de curación a sí mismo.
-    if (spell.effect.toLowerCase().includes('curar') || spell.effect.toLowerCase().includes('salud')) {
-         updatedCharacter.status.health = Math.min(
-             updatedCharacter.status.health, // Máximo es el original, no cambia el máximo
-             (updatedCharacter.currentStatus?.currentHealth ?? updatedCharacter.status.health) + 5 // Ejemplo de cura
-         );
-         // Actualizar el estado actual si es necesario
-         if (updatedCharacter.currentStatus) {
-             updatedCharacter.currentStatus.currentHealth = updatedCharacter.status.health;
-         } else {
-             updatedCharacter.currentStatus = {
-                 currentHealth: updatedCharacter.status.health,
-                 currentStamina: updatedCharacter.status.stamina,
-                 currentMana: updatedCharacter.status.mana,
-             };
-         }
-    }
-
-    onCharacterUpdate(updatedCharacter);
-    setAction(null);
-    setSpellToUse('');
-  };
-
-  const handleUsePotion = () => {
-    if (!potionToUse) return;
-    const potion = character.inventory.find(i => i.id === potionToUse && i.type === 'potion');
-    if (!potion || potion.quantity <= 0) return;
-
-    let updatedCharacter = { ...character };
-
-    // Aplicar efecto de la poción (ejemplo simple)
-    if (potion.subtype === 'health') {
-        updatedCharacter.status.health = Math.min(
-             updatedCharacter.status.health, // Máximo es el original
-             (updatedCharacter.currentStatus?.currentHealth ?? updatedCharacter.status.health) + (potion.effect || 0)
-        );
-        if (updatedCharacter.currentStatus) {
-             updatedCharacter.currentStatus.currentHealth = updatedCharacter.status.health;
-        } else {
-             updatedCharacter.currentStatus = {
-                 currentHealth: updatedCharacter.status.health,
-                 currentStamina: updatedCharacter.status.stamina,
-                 currentMana: updatedCharacter.status.mana,
-             };
-        }
-    }
-    // Similar para stamina, mana, etc.
-
-    // Quitar una unidad del inventario
-    updatedCharacter.inventory = updatedCharacter.inventory.map(item => {
-        if (item.id === potionToUse) {
-            return { ...item, quantity: item.quantity - 1 };
-        }
-        return item;
-    }).filter(item => item.quantity > 0); // Eliminar ítems con cantidad 0
-
-    onCharacterUpdate(updatedCharacter);
-    setAction(null);
-    setPotionToUse('');
-  };
-
-  const handleUseScroll = () => {
-    if (!scrollToUse) return;
-    const scroll = character.inventory.find(i => i.id === scrollToUse && i.type === 'scroll');
-    if (!scroll || scroll.quantity <= 0) return;
-
-    // Lógica similar a la poción, pero con efectos de pergamino
-    let updatedCharacter = { ...character };
-    // ... aplicar efecto ...
-    // Quitar una unidad
-    updatedCharacter.inventory = updatedCharacter.inventory.map(item => {
-        if (item.id === scrollToUse) {
-            return { ...item, quantity: item.quantity - 1 };
-        }
-        return item;
-    }).filter(item => item.quantity > 0);
-
-    onCharacterUpdate(updatedCharacter);
-    setAction(null);
-    setScrollToUse('');
-  };
-
-  const handleReceiveEffect = () => {
-    if (receivedEffectValue === 0) return;
-    let updatedCharacter = { ...character };
-
-    // Aplicar efecto recibido (ejemplo simple)
-    if (receivedEffectType === 'health') {
-        updatedCharacter.status.health = Math.min(
-             updatedCharacter.status.health,
-             (updatedCharacter.currentStatus?.currentHealth ?? updatedCharacter.status.health) + receivedEffectValue
-        );
-        if (updatedCharacter.currentStatus) {
-             updatedCharacter.currentStatus.currentHealth = updatedCharacter.status.health;
-        } else {
-             updatedCharacter.currentStatus = {
-                 currentHealth: updatedCharacter.status.health,
-                 currentStamina: updatedCharacter.status.stamina,
-                 currentMana: updatedCharacter.status.mana,
-             };
-        }
-    }
-    // ... otros tipos de efectos ...
-
-    onCharacterUpdate(updatedCharacter);
-    setAction(null);
-    setReceivedEffectValue(0);
-    setReceivedEffectType('health');
-    setReceivedEffectDuration('1 turno');
+  const resetBuyItemForm = () => {
+    setBuyItemType('misc');
+    setBuyItemName('');
+    setBuyItemQuantity(1);
+    setBuyItemSubtype('');
+    setBuyItemEffect(0);
+    setBuyItemDuration('');
+    setBuyItemWeaponType('melee');
+    setBuyItemRequiredHands(1);
+    setBuyItemDamageDiceQty(1);
+    setBuyItemDamageDiceFaces(6);
+    setBuyItemEnchanted(false);
+    setBuyItemEnchantmentValue(0);
+    setBuyItemDurabilityMax(0);
+    setBuyItemIntegrity(0);
+    setBuyItemResistanceMax(0);
+    setBuyItemBlockPhysical(0);
+    setBuyItemBlockMagic(0);
+    setBuyItemEnhancementPhysical(0);
+    setBuyItemEnhancementMagic(0);
+    setBuyItemIntegrityArmor(0);
   };
 
   const handleFindItem = () => {
-    if (!findItemName.trim()) return;
-    let updatedCharacter = { ...character };
-    const existingItem = updatedCharacter.inventory.find(i => i.name === findItemName && i.type === findItemType);
+    // Similar a handleBuyItem, pero con los estados de find
+    const newItem: InventoryItem = {
+      id: Date.now().toString(),
+      type: findItemType,
+      name: findItemName,
+      quantity: findItemQuantity,
+      // Añadir campos condicionalmente (similar a buy)
+      ...(findItemType === 'potion' || findItemType === 'scroll' || findItemType === 'ammunition' ? {
+          subtype: findItemSubtype || undefined,
+          effect: findItemEffect || undefined,
+          duration: findItemDuration || undefined,
+      } : {}),
+      ...(findItemType === 'weapon' ? {
+          weaponType: findItemWeaponType,
+          requiredHands: findItemRequiredHands,
+          damageDice: (findItemDamageDiceQty > 0 && findItemDamageDiceFaces > 0) ? [{ quantity: findItemDamageDiceQty, faces: findItemDamageDiceFaces }] : undefined,
+          enchanted: findItemEnchanted || undefined,
+          enchantmentValue: findItemEnchanted ? findItemEnchantmentValue : undefined,
+          durabilityMax: findItemDurabilityMax || undefined,
+          integrity: findItemIntegrity || undefined,
+      } : {}),
+      ...(findItemType === 'armor' ? {
+          resistanceMax: findItemResistanceMax || undefined,
+          blockPhysical: findItemBlockPhysical || undefined,
+          blockMagic: findItemBlockMagic || undefined,
+          enhancementPhysical: findItemEnhancementPhysical || undefined,
+          enhancementMagic: findItemEnhancementMagic || undefined,
+          integrity: findItemIntegrityArmor || undefined,
+      } : {}),
+    };
 
-    if (existingItem) {
-        existingItem.quantity += findItemQuantity;
-    } else {
-        const newItem = {
-            id: Date.now().toString(),
-            type: findItemType,
-            name: findItemName,
-            quantity: findItemQuantity,
-        };
-        updatedCharacter.inventory.push(newItem);
-    }
-
+    const updatedCharacter = {
+      ...character,
+      inventory: [...character.inventory, newItem],
+    };
     onCharacterUpdate(updatedCharacter);
-    setAction(null);
+    setShowFindItemModal(false);
+    resetFindItemForm();
+  };
+
+  // Estados para encontrar ítems (muy similares a comprar)
+  const [findItemType, setFindItemType] = useState<InventoryItemType>('misc');
+  const [findItemName, setFindItemName] = useState('');
+  const [findItemQuantity, setFindItemQuantity] = useState(1);
+  const [findItemSubtype, setFindItemSubtype] = useState('');
+  const [findItemEffect, setFindItemEffect] = useState(0);
+  const [findItemDuration, setFindItemDuration] = useState('');
+  const [findItemWeaponType, setFindItemWeaponType] = useState<'melee' | 'ranged' | 'shield'>('melee');
+  const [findItemRequiredHands, setFindItemRequiredHands] = useState<0 | 1 | 2>(1);
+  const [findItemDamageDiceQty, setFindItemDamageDiceQty] = useState(1);
+  const [findItemDamageDiceFaces, setFindItemDamageDiceFaces] = useState(6);
+  const [findItemEnchanted, setFindItemEnchanted] = useState(false);
+  const [findItemEnchantmentValue, setFindItemEnchantmentValue] = useState(0);
+  const [findItemDurabilityMax, setFindItemDurabilityMax] = useState(0);
+  const [findItemIntegrity, setFindItemIntegrity] = useState(0);
+  const [findItemResistanceMax, setFindItemResistanceMax] = useState(0);
+  const [findItemBlockPhysical, setFindItemBlockPhysical] = useState(0);
+  const [findItemBlockMagic, setFindItemBlockMagic] = useState(0);
+  const [findItemEnhancementPhysical, setFindItemEnhancementPhysical] = useState(0);
+  const [findItemEnhancementMagic, setFindItemEnhancementMagic] = useState(0);
+  const [findItemIntegrityArmor, setFindItemIntegrityArmor] = useState(0);
+
+  const resetFindItemForm = () => {
+    setFindItemType('misc');
     setFindItemName('');
     setFindItemQuantity(1);
+    setFindItemSubtype('');
+    setFindItemEffect(0);
+    setFindItemDuration('');
+    setFindItemWeaponType('melee');
+    setFindItemRequiredHands(1);
+    setFindItemDamageDiceQty(1);
+    setFindItemDamageDiceFaces(6);
+    setFindItemEnchanted(false);
+    setFindItemEnchantmentValue(0);
+    setFindItemDurabilityMax(0);
+    setFindItemIntegrity(0);
+    setFindItemResistanceMax(0);
+    setFindItemBlockPhysical(0);
+    setFindItemBlockMagic(0);
+    setFindItemEnhancementPhysical(0);
+    setFindItemEnhancementMagic(0);
+    setFindItemIntegrityArmor(0);
   };
 
-  const handleBuyItem = () => {
-    if (!buyItemName.trim() || buyCost <= 0) return;
-    // Suponemos monedas en inventario para simplificar
-    const coinsItem = character.inventory.find(i => i.type === 'coins');
-    if (!coinsItem || coinsItem.quantity < buyCost) {
-        alert("No tienes suficiente dinero.");
-        return;
-    }
+  const handleAddSpell = () => {
+    const newSpell: Spell = {
+      id: Date.now().toString(),
+      name: newSpellName,
+      difficulty: newSpellDifficulty,
+      cost: newSpellCost,
+      range: newSpellRange,
+      effect: newSpellEffect,
+    };
 
-    let updatedCharacter = { ...character };
-
-    // Restar dinero
-    coinsItem.quantity -= buyCost;
-
-    // Añadir ítem al inventario
-    const existingItem = updatedCharacter.inventory.find(i => i.name === buyItemName);
-    if (existingItem) {
-        existingItem.quantity += buyItemQuantity;
-    } else {
-        const newItem = {
-            id: Date.now().toString(),
-            type: 'misc' as InventoryItemType,
-            name: buyItemName,
-            quantity: buyItemQuantity,
-        };
-        updatedCharacter.inventory.push(newItem);
-    }
-
+    const updatedCharacter = {
+      ...character,
+      spellbook: [...character.spellbook, newSpell],
+    };
     onCharacterUpdate(updatedCharacter);
-    setAction(null);
-    setBuyItemName('');
-    setBuyItemQuantity(1);
-    setBuyCost(0);
+    setShowAddSpellModal(false);
+    setNewSpellName('');
+    setNewSpellDifficulty(0);
+    setNewSpellCost(0);
+    setNewSpellRange('');
+    setNewSpellEffect('');
   };
 
-  const handleSellItem = () => {
-    if (!sellItem || sellQuantity <= 0 || sellValue <= 0) return;
-    const itemToSell = character.inventory.find(i => i.id === sellItem);
-    if (!itemToSell || itemToSell.quantity < sellQuantity) {
-        alert("Cantidad insuficiente para vender.");
-        return;
-    }
+  const handleAddNote = () => {
+    // Generar una clave automática basada en la fecha o un ID
+    const key = `Nota-${Date.now()}`; // O puedes usar crypto.randomUUID() si está disponible
+    const newNote: Note = {
+      id: Date.now().toString(),
+      key: key, // Aunque no se mostrará al usuario, se guarda
+      content: newNoteContent,
+    };
 
-    let updatedCharacter = { ...character };
-
-    // Quitar ítems del inventario
-    if (itemToSell.quantity === sellQuantity) {
-        updatedCharacter.inventory = updatedCharacter.inventory.filter(i => i.id !== sellItem);
-    } else {
-        itemToSell.quantity -= sellQuantity;
-    }
-
-    // Añadir dinero
-    const coinsItem = updatedCharacter.inventory.find(i => i.type === 'coins');
-    if (coinsItem) {
-        coinsItem.quantity += (sellValue * sellQuantity);
-    } else {
-        updatedCharacter.inventory.push({
-            id: Date.now().toString(),
-            type: 'coins',
-            name: 'Monedas',
-            quantity: sellValue * sellQuantity,
-        });
-    }
-
+    const updatedCharacter = {
+      ...character,
+      notes: [...character.notes, newNote],
+    };
     onCharacterUpdate(updatedCharacter);
-    setAction(null);
-    setSellItem('');
-    setSellQuantity(1);
-    setSellValue(0);
+    setShowAddNoteModal(false);
+    setNewNoteContent(''); // <-- Cambio: solo limpiar contenido
   };
-
-  const renderActionForm = () => {
-    switch (action) {
-      case 'receivePhysicalDamage':
-      case 'receiveMagicDamage':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Recibir Daño</h3>
-            <input
-              type="number"
-              placeholder="Valor del daño"
-              value={damageValue}
-              onChange={(e) => setDamageValue(parseInt(e.target.value) || 0)}
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={() => handleReceiveDamage(action === 'receivePhysicalDamage' ? 'physical' : 'magic')} className="px-4 py-2 bg-error text-white rounded">Aplicar</button>
-            </div>
-          </div>
-        );
-      case 'useSpell':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Usar Hechizo</h3>
-            <select
-              value={spellToUse}
-              onChange={(e) => setSpellToUse(e.target.value)}
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            >
-              <option value="">Selecciona un hechizo</option>
-              {character.spellbook.map(spell => (
-                <option key={spell.id} value={spell.id}>{spell.name}</option>
-              ))}
-            </select>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={handleUseSpell} className="px-4 py-2 bg-primary text-white rounded">Lanzar</button>
-            </div>
-          </div>
-        );
-      case 'usePotion':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Usar Poción</h3>
-            <select
-              value={potionToUse}
-              onChange={(e) => setPotionToUse(e.target.value)}
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            >
-              <option value="">Selecciona una poción</option>
-              {character.inventory.filter(i => i.type === 'potion').map(item => (
-                <option key={item.id} value={item.id}>{item.name} (Cant: {item.quantity})</option>
-              ))}
-            </select>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={handleUsePotion} className="px-4 py-2 bg-primary text-white rounded">Usar</button>
-            </div>
-          </div>
-        );
-      case 'useScroll':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Usar Pergamino</h3>
-            <select
-              value={scrollToUse}
-              onChange={(e) => setScrollToUse(e.target.value)}
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            >
-              <option value="">Selecciona un pergamino</option>
-              {character.inventory.filter(i => i.type === 'scroll').map(item => (
-                <option key={item.id} value={item.id}>{item.name} (Cant: {item.quantity})</option>
-              ))}
-            </select>
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={handleUseScroll} className="px-4 py-2 bg-primary text-white rounded">Usar</button>
-            </div>
-          </div>
-        );
-      case 'receiveEffect':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Recibir Efecto</h3>
-            <select
-              value={receivedEffectType}
-              onChange={(e) => setReceivedEffectType(e.target.value)}
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            >
-              <option value="health">Salud</option>
-              <option value="stamina">Aguante</option>
-              <option value="mana">Maná</option>
-              <option value="other">Otro</option>
-            </select>
-            <input
-              type="number"
-              placeholder="Valor del efecto"
-              value={receivedEffectValue}
-              onChange={(e) => setReceivedEffectValue(parseInt(e.target.value) || 0)}
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            />
-            <input
-              type="text"
-              placeholder="Duración (opcional)"
-              value={receivedEffectDuration}
-              onChange={(e) => setReceivedEffectDuration(e.target.value)}
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={handleReceiveEffect} className="px-4 py-2 bg-primary text-white rounded">Aplicar</button>
-            </div>
-          </div>
-        );
-      case 'findItem':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Encontrar Objeto</h3>
-            <select
-              value={findItemType}
-              onChange={(e) => setFindItemType(e.target.value as any)}
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            >
-              <option value="coins">Monedas</option>
-              <option value="armor">Armadura</option>
-              <option value="weapon">Arma</option>
-              <option value="potion">Poción</option>
-              <option value="scroll">Pergamino</option>
-              <option value="ammunition">Munición</option>
-              <option value="misc">Varios</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Nombre del objeto"
-              value={findItemName}
-              onChange={(e) => setFindItemName(e.target.value)}
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            />
-            <input
-              type="number"
-              placeholder="Cantidad"
-              value={findItemQuantity}
-              onChange={(e) => setFindItemQuantity(parseInt(e.target.value) || 1)}
-              min="1"
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={handleFindItem} className="px-4 py-2 bg-primary text-white rounded">Añadir</button>
-            </div>
-          </div>
-        );
-      case 'buyItem':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Comprar Objeto</h3>
-            <input
-              type="text"
-              placeholder="Nombre del objeto"
-              value={buyItemName}
-              onChange={(e) => setBuyItemName(e.target.value)}
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            />
-            <input
-              type="number"
-              placeholder="Cantidad"
-              value={buyItemQuantity}
-              onChange={(e) => setBuyItemQuantity(parseInt(e.target.value) || 1)}
-              min="1"
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            />
-            <input
-              type="number"
-              placeholder="Coste en monedas"
-              value={buyCost}
-              onChange={(e) => setBuyCost(parseInt(e.target.value) || 0)}
-              min="0"
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={handleBuyItem} className="px-4 py-2 bg-primary text-white rounded">Comprar</button>
-            </div>
-          </div>
-        );
-      case 'sellItem':
-        return (
-          <div className="p-4">
-            <h3 className="text-lg font-bold mb-2">Vender Objeto</h3>
-            <select
-              value={sellItem}
-              onChange={(e) => setSellItem(e.target.value)}
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            >
-              <option value="">Selecciona un ítem</option>
-              {character.inventory.filter(i => i.type !== 'coins').map(item => (
-                <option key={item.id} value={item.id}>{item.name} (Cant: {item.quantity})</option>
-              ))}
-            </select>
-            <input
-              type="number"
-              placeholder="Cantidad a vender"
-              value={sellQuantity}
-              onChange={(e) => setSellQuantity(parseInt(e.target.value) || 1)}
-              min="1"
-              className="w-full p-2 mb-2 border border-border rounded bg-background"
-            />
-            <input
-              type="number"
-              placeholder="Valor por unidad"
-              value={sellValue}
-              onChange={(e) => setSellValue(parseInt(e.target.value) || 0)}
-              min="0"
-              className="w-full p-2 mb-3 border border-border rounded bg-background"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setAction(null)} className="px-4 py-2 bg-gray-500 text-white rounded">Cancelar</button>
-              <button onClick={handleSellItem} className="px-4 py-2 bg-primary text-white rounded">Vender</button>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
-  if (action) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-card rounded-lg shadow-xl border border-border w-full max-w-md">
-          {renderActionForm()}
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="absolute right-0 mt-2 w-64 bg-card rounded-lg shadow-lg border border-border z-40">
-      <div className="p-2">
-        <h3 className="font-semibold text-text-primary mb-2">Menú de Opciones</h3>
-        <div className="space-y-1">
-          <h4 className="text-xs uppercase text-text-secondary pl-2">Acciones</h4>
-          <button
-            onClick={() => setAction('receivePhysicalDamage')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Recibir daño físico
-          </button>
-          <button
-            onClick={() => setAction('receiveMagicDamage')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Recibir daño mágico
-          </button>
-          <button
-            onClick={() => setAction('useSpell')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Usar hechizo
-          </button>
-          <button
-            onClick={() => setAction('usePotion')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Usar poción
-          </button>
-          <button
-            onClick={() => setAction('useScroll')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Usar pergamino
-          </button>
-          <button
-            onClick={() => setAction('receiveEffect')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Recibir efecto
-          </button>
-        </div>
-        <div className="space-y-1 mt-2">
-          <h4 className="text-xs uppercase text-text-secondary pl-2">Objetos</h4>
-          <button
-            onClick={() => setAction('findItem')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Encontrar
-          </button>
-          <button
-            onClick={() => setAction('buyItem')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Comprar
-          </button>
-          <button
-            onClick={() => setAction('sellItem')}
-            className="w-full text-left px-3 py-2 text-sm hover:bg-background rounded"
-          >
-            Vender
-          </button>
-        </div>
-        <div className="pt-2 mt-2 border-t border-border">
-          <button
-            onClick={onClose}
-            className="w-full text-center px-3 py-2 text-sm text-error hover:bg-background rounded"
-          >
-            Cerrar Menú
-          </button>
-        </div>
+    <div className="absolute right-0 mt-2 w-64 bg-card rounded-md shadow-lg border border-border z-10">
+      <div className="py-1">
+        <button
+          onClick={() => setShowBuyItemModal(true)}
+          className="block px-4 py-2 text-sm text-text-primary hover:bg-background w-full text-left"
+        >
+          Comprar Objeto
+        </button>
+        <button
+          onClick={() => setShowFindItemModal(true)}
+          className="block px-4 py-2 text-sm text-text-primary hover:bg-background w-full text-left"
+        >
+          Encontrar Objeto
+        </button>
+        <button
+          onClick={() => setShowAddSpellModal(true)}
+          className="block px-4 py-2 text-sm text-text-primary hover:bg-background w-full text-left"
+        >
+          Añadir Hechizo
+        </button>
+        <button
+          onClick={() => setShowAddNoteModal(true)}
+          className="block px-4 py-2 text-sm text-text-primary hover:bg-background w-full text-left"
+        >
+          Añadir Nota
+        </button>
+        <button
+          onClick={onClose}
+          className="block px-4 py-2 text-sm text-text-primary hover:bg-background w-full text-left"
+        >
+          Cerrar
+        </button>
       </div>
+
+      {/* Modal para Comprar Objeto */}
+      {showBuyItemModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg shadow-xl border border-border w-full max-w-md p-6">
+            <h3 className="text-lg font-bold mb-4">Comprar Objeto</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Tipo de Objeto</label>
+                <select
+                  value={buyItemType}
+                  onChange={(e) => setBuyItemType(e.target.value as InventoryItemType)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="coins">Monedas</option>
+                  <option value="armor">Armadura</option>
+                  <option value="weapon">Arma</option>
+                  <option value="potion">Poción</option>
+                  <option value="scroll">Pergamino</option>
+                  <option value="ammunition">Munición</option>
+                  <option value="misc">Misceláneo</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Nombre</label>
+                <input
+                  type="text"
+                  value={buyItemName}
+                  onChange={(e) => setBuyItemName(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cantidad</label>
+                <input
+                  type="number"
+                  value={buyItemQuantity}
+                  onChange={(e) => setBuyItemQuantity(parseInt(e.target.value) || 1)}
+                  min="1" // La cantidad mínima es 1
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              {/* Campos condicionales para Poción, Pergamino, Munición */}
+              {(buyItemType === 'potion' || buyItemType === 'scroll' || buyItemType === 'ammunition') && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Subtipo</label>
+                    <input
+                      type="text"
+                      value={buyItemSubtype}
+                      onChange={(e) => setBuyItemSubtype(e.target.value)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Efecto</label>
+                    <input
+                      type="number"
+                      value={buyItemEffect}
+                      onChange={(e) => setBuyItemEffect(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Duración</label>
+                    <input
+                      type="text"
+                      value={buyItemDuration}
+                      onChange={(e) => setBuyItemDuration(e.target.value)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Campos condicionales para Arma */}
+              {buyItemType === 'weapon' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Tipo de Arma</label>
+                    <select
+                      value={buyItemWeaponType}
+                      onChange={(e) => setBuyItemWeaponType(e.target.value as any)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="melee">Melee</option>
+                      <option value="ranged">Ranged</option>
+                      <option value="shield">Shield</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Manos Requeridas</label>
+                    <select
+                      value={buyItemRequiredHands}
+                      onChange={(e) => setBuyItemRequiredHands(parseInt(e.target.value) as 0 | 1 | 2)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value={0}>0</option>
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Dado de Daño (Qty)</label>
+                    <input
+                      type="number"
+                      value={buyItemDamageDiceQty}
+                      onChange={(e) => setBuyItemDamageDiceQty(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Dado de Daño (Faces)</label>
+                    <input
+                      type="number"
+                      value={buyItemDamageDiceFaces}
+                      onChange={(e) => setBuyItemDamageDiceFaces(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="flex items-center col-span-2">
+                    <input
+                      type="checkbox"
+                      id="buyItemEnchanted"
+                      checked={buyItemEnchanted}
+                      onChange={(e) => setBuyItemEnchanted(e.target.checked)}
+                      className="mr-2 h-4 w-4 text-accent focus:ring-accent"
+                    />
+                    <label htmlFor="buyItemEnchanted" className="text-xs">Encantado</label>
+                  </div>
+                  {buyItemEnchanted && (
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium mb-1">Valor Encantamiento</label>
+                      <input
+                        type="number"
+                        value={buyItemEnchantmentValue}
+                        onChange={(e) => setBuyItemEnchantmentValue(parseInt(e.target.value) || 0)}
+                        className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Durabilidad Max</label>
+                    <input
+                      type="number"
+                      value={buyItemDurabilityMax}
+                      onChange={(e) => setBuyItemDurabilityMax(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Integridad</label>
+                    <input
+                      type="number"
+                      value={buyItemIntegrity}
+                      onChange={(e) => setBuyItemIntegrity(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Campos condicionales para Armadura */}
+              {buyItemType === 'armor' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Resistencia Max</label>
+                    <input
+                      type="number"
+                      value={buyItemResistanceMax}
+                      onChange={(e) => setBuyItemResistanceMax(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Bloqueo Físico</label>
+                    <input
+                      type="number"
+                      value={buyItemBlockPhysical}
+                      onChange={(e) => setBuyItemBlockPhysical(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Bloqueo Mágico</label>
+                    <input
+                      type="number"
+                      value={buyItemBlockMagic}
+                      onChange={(e) => setBuyItemBlockMagic(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Mejora Física</label>
+                    <input
+                      type="number"
+                      value={buyItemEnhancementPhysical}
+                      onChange={(e) => setBuyItemEnhancementPhysical(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Mejora Mágica</label>
+                    <input
+                      type="number"
+                      value={buyItemEnhancementMagic}
+                      onChange={(e) => setBuyItemEnhancementMagic(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Integridad</label>
+                    <input
+                      type="number"
+                      value={buyItemIntegrityArmor}
+                      onChange={(e) => setBuyItemIntegrityArmor(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                onClick={() => { setShowBuyItemModal(false); resetBuyItemForm(); }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleBuyItem}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              >
+                Comprar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Encontrar Objeto - Similar a Comprar */}
+      {showFindItemModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg shadow-xl border border-border w-full max-w-md p-6">
+            <h3 className="text-lg font-bold mb-4">Encontrar Objeto</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Tipo de Objeto</label>
+                <select
+                  value={findItemType}
+                  onChange={(e) => setFindItemType(e.target.value as InventoryItemType)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="coins">Monedas</option>
+                  <option value="armor">Armadura</option>
+                  <option value="weapon">Arma</option>
+                  <option value="potion">Poción</option>
+                  <option value="scroll">Pergamino</option>
+                  <option value="ammunition">Munición</option>
+                  <option value="misc">Misceláneo</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Nombre</label>
+                <input
+                  type="text"
+                  value={findItemName}
+                  onChange={(e) => setFindItemName(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Cantidad</label>
+                <input
+                  type="number"
+                  value={findItemQuantity}
+                  onChange={(e) => setFindItemQuantity(parseInt(e.target.value) || 1)}
+                  min="1"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              {/* Campos condicionales para Poción, Pergamino, Munición */}
+              {(findItemType === 'potion' || findItemType === 'scroll' || findItemType === 'ammunition') && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Subtipo</label>
+                    <input
+                      type="text"
+                      value={findItemSubtype}
+                      onChange={(e) => setFindItemSubtype(e.target.value)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Efecto</label>
+                    <input
+                      type="number"
+                      value={findItemEffect}
+                      onChange={(e) => setFindItemEffect(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Duración</label>
+                    <input
+                      type="text"
+                      value={findItemDuration}
+                      onChange={(e) => setFindItemDuration(e.target.value)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Campos condicionales para Arma */}
+              {findItemType === 'weapon' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Tipo de Arma</label>
+                    <select
+                      value={findItemWeaponType}
+                      onChange={(e) => setFindItemWeaponType(e.target.value as any)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="melee">Melee</option>
+                      <option value="ranged">Ranged</option>
+                      <option value="shield">Shield</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Manos Requeridas</label>
+                    <select
+                      value={findItemRequiredHands}
+                      onChange={(e) => setFindItemRequiredHands(parseInt(e.target.value) as 0 | 1 | 2)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value={0}>0</option>
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Dado de Daño (Qty)</label>
+                    <input
+                      type="number"
+                      value={findItemDamageDiceQty}
+                      onChange={(e) => setFindItemDamageDiceQty(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Dado de Daño (Faces)</label>
+                    <input
+                      type="number"
+                      value={findItemDamageDiceFaces}
+                      onChange={(e) => setFindItemDamageDiceFaces(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="flex items-center col-span-2">
+                    <input
+                      type="checkbox"
+                      id="findItemEnchanted"
+                      checked={findItemEnchanted}
+                      onChange={(e) => setFindItemEnchanted(e.target.checked)}
+                      className="mr-2 h-4 w-4 text-accent focus:ring-accent"
+                    />
+                    <label htmlFor="findItemEnchanted" className="text-xs">Encantado</label>
+                  </div>
+                  {findItemEnchanted && (
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium mb-1">Valor Encantamiento</label>
+                      <input
+                        type="number"
+                        value={findItemEnchantmentValue}
+                        onChange={(e) => setFindItemEnchantmentValue(parseInt(e.target.value) || 0)}
+                        className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Durabilidad Max</label>
+                    <input
+                      type="number"
+                      value={findItemDurabilityMax}
+                      onChange={(e) => setFindItemDurabilityMax(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Integridad</label>
+                    <input
+                      type="number"
+                      value={findItemIntegrity}
+                      onChange={(e) => setFindItemIntegrity(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Campos condicionales para Armadura */}
+              {findItemType === 'armor' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Resistencia Max</label>
+                    <input
+                      type="number"
+                      value={findItemResistanceMax}
+                      onChange={(e) => setFindItemResistanceMax(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Bloqueo Físico</label>
+                    <input
+                      type="number"
+                      value={findItemBlockPhysical}
+                      onChange={(e) => setFindItemBlockPhysical(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Bloqueo Mágico</label>
+                    <input
+                      type="number"
+                      value={findItemBlockMagic}
+                      onChange={(e) => setFindItemBlockMagic(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Mejora Física</label>
+                    <input
+                      type="number"
+                      value={findItemEnhancementPhysical}
+                      onChange={(e) => setFindItemEnhancementPhysical(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Mejora Mágica</label>
+                    <input
+                      type="number"
+                      value={findItemEnhancementMagic}
+                      onChange={(e) => setFindItemEnhancementMagic(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1">Integridad</label>
+                    <input
+                      type="number"
+                      value={findItemIntegrityArmor}
+                      onChange={(e) => setFindItemIntegrityArmor(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                onClick={() => { setShowFindItemModal(false); resetFindItemForm(); }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleFindItem}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              >
+                Encontrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Añadir Hechizo */}
+      {showAddSpellModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg shadow-xl border border-border w-full max-w-md p-6">
+            <h3 className="text-lg font-bold mb-4">Añadir Hechizo</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nombre del Hechizo</label>
+                <input
+                  type="text"
+                  value={newSpellName}
+                  onChange={(e) => setNewSpellName(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Dificultad</label>
+                <input
+                  type="number"
+                  value={newSpellDifficulty}
+                  onChange={(e) => setNewSpellDifficulty(parseInt(e.target.value) || 0)}
+                  min="0"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Coste de Maná</label>
+                <input
+                  type="number"
+                  value={newSpellCost}
+                  onChange={(e) => setNewSpellCost(parseInt(e.target.value) || 0)}
+                  min="0"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Alcance</label>
+                <input
+                  type="text"
+                  value={newSpellRange}
+                  onChange={(e) => setNewSpellRange(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Efecto</label>
+                <textarea
+                  value={newSpellEffect}
+                  onChange={(e) => setNewSpellEffect(e.target.value)}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                onClick={() => { setShowAddSpellModal(false); setNewSpellName(''); setNewSpellDifficulty(0); setNewSpellCost(0); setNewSpellRange(''); setNewSpellEffect(''); }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddSpell}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              >
+                Añadir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Añadir Nota */}
+      {showAddNoteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg shadow-xl border border-border w-full max-w-md p-6">
+            <h3 className="text-lg font-bold mb-4">Añadir Nota</h3>
+            <div className="space-y-4">
+              {/* Etiqueta fuera del textarea */}
+              <label className="block text-sm font-medium mb-1">Contenido de la Nota</label>
+              <textarea
+                value={newNoteContent}
+                onChange={(e) => setNewNoteContent(e.target.value)}
+                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                rows={4}
+                placeholder="Escribe aquí tu nota..."
+              />
+            </div>
+            <div className="flex justify-end space-x-2 mt-4">
+              <button
+                onClick={() => { setShowAddNoteModal(false); setNewNoteContent(''); }}
+                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddNote}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              >
+                Añadir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
